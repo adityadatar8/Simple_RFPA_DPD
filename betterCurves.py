@@ -158,3 +158,4 @@ mseRegular = np.mean((regularAmplifiedSignal - desiredSignal)**2)
 print("MSE with DPD: " + str(mse))
 print("MSE without DPD: " + str(mseRegular))
 
+print('Done')
