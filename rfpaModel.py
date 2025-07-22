@@ -51,5 +51,6 @@ def plot_data(input_I, input_Q, output_I, output_Q, title):
 
 plot_data(input_I_train, input_Q_train, output_I_train, output_Q_train, 'Training Data')
 plot_data(input_I_test, input_Q_test, output_I_test, output_Q_test, 'Testing Data')
-
+t = np.linspace(0, 23040, 23040)
+plot_data(t, input_I_train*np.cos(t) + input_Q_train*np.sin(t), t, output_I_train*np.cos(t) + output_Q_train*np.sin(t), 'Signals')
 
