@@ -5,12 +5,49 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from rfpaModel import PowerAmplifierModel, PowerAmplifierDataset
 
-theta = np.linspace(0, 2*np.pi, 1000)
-mag = np.linspace(0, 3, 1000)
+forward_model_path = 'rfpaModel.pth'
+# Check for GPU availability and move model to GPU if available
+forward_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {forward_device}")
+forward_model = PowerAmplifierModel() # Re-instantiate the model architecture
+forward_model.load_state_dict(torch.load(forward_model_path))
+forward_model.to(forward_device)
+forward_model.eval() # Set to evaluation mode after loading
+print("RFPA Model loaded successfully for inference.")
+
+def RFPA(I, Q):
+    new_input_power = torch.tensor([[I, Q]], dtype=torch.float32).to(forward_device) # Provide 2 input values
+    with torch.no_grad():
+        predicted_output = forward_model(new_input_power.reshape(-1, 2))
+        predicted_output = predicted_output.cpu().numpy()
+    return predicted_output
+
+num_samples_train = 23040
+theta_train = np.linspace(0, 2*np.pi, num_samples_train)
+mag_train = np.linspace(0, 5, num_samples_train)
+forwardInput_I_train = np.cos(theta_train) * mag_train
+forwardInput_Q_train = np.sin(theta_train) * mag_train
+forwardOutput_train = RFPA(forwardInput_I_train, forwardInput_Q_train).reshape(2, -1)
+inverseInput_I_train = forwardOutput_train[0]
+inverseInput_Q_train = forwardOutput_train[1]
+inverseOutput_I_train = forwardInput_I_train
+inverseOutput_Q_train = forwardInput_Q_train
+
+num_samples_test = 1000
+theta_test = np.linspace(0, 2*np.pi, num_samples_test)
+mag_test = np.linspace(0, 5, num_samples_test)
+forwardInput_I_test = np.cos(theta_test) * mag_test
+forwardInput_Q_test = np.sin(theta_test) * mag_test
+forwardOutput_test = RFPA(forwardInput_I_test, forwardInput_Q_test).reshape(2, -1)
+inverseInput_I_test = forwardOutput_test[0]
+inverseInput_Q_test = forwardOutput_test[1]
+inverseOutput_I_test = forwardInput_I_test
+inverseOutput_Q_test = forwardInput_Q_test
 
 # --- 1. Define the Custom Dataset for Power Amplifier Data ---
-class PowerAmplifierDataset(Dataset):
+class InversePowerAmplifierDataset(Dataset):
     """
     A custom PyTorch Dataset for power amplifier input-output data.
     It takes NumPy arrays for input (X) and output (Y).
@@ -63,7 +100,7 @@ class PowerAmplifierDataset(Dataset):
         return self.inputs[idx], self.outputs[idx]
 
 # --- 2. Define the Neural Network Model for the Power Amplifier ---
-class PowerAmplifierModel(nn.Module):
+class InversePowerAmplifierModel(nn.Module):
     """
     A simple feed-forward neural network (MLP) to model a power amplifier.
     Now configured for 2 inputs and 2 outputs.
@@ -74,7 +111,7 @@ class PowerAmplifierModel(nn.Module):
         We use a few hidden layers with ReLU activation, and a final linear
         layer for the regression output.
         """
-        super(PowerAmplifierModel, self).__init__()
+        super(InversePowerAmplifierModel, self).__init__()
         # --- CHANGED: Input layer now takes 2 features ---
         self.fc1 = nn.Linear(2, 64)  # 2 inputs to first hidden layer
         self.relu1 = nn.ReLU()       # Activation function
@@ -119,24 +156,24 @@ if __name__ == '__main__':
 
     # --- CHANGED: Generate 2 input features ---
     # Input feature 1 (e.g., input power 1)
-    input_feature_1 = input_I_train
+    input_feature_1 = inverseInput_I_train
     # Input feature 2 (e.g., input power 2 or a control voltage)
-    input_feature_2 = input_Q_train
+    input_feature_2 = inverseInput_Q_train
 
     # Combine into a (num_samples, 2) array
-    input_power_np_train = np.array((input_I_train, input_Q_train))
-    input_power_np_test = np.array((output_I_test, output_Q_test))
+    input_power_np_train = np.array((inverseInput_I_train, inverseInput_Q_train))
+    input_power_np_test = np.array((inverseOutput_I_test, inverseOutput_Q_test))
     input_power_np_train = input_power_np_train.reshape(-1, 2) # Ensure shape is (num_samples, 2)
     input_power_np_test = input_power_np_test.reshape(-1, 2) # Ensure shape is (num_samples, 2)
 
     # --- CHANGED: Generate 2 output features based on the 2 inputs ---
     # Simulate non-linear amplifier responses for each output
-    output_feature_1 = output_I_train
-    output_feature_2 = output_Q_train
+    output_feature_1 = inverseOutput_I_train
+    output_feature_2 = inverseOutput_Q_train
 
     # Combine into a (num_samples, 2) array
-    output_power_np_train = np.array((output_I_train, output_Q_train))
-    output_power_np_test = np.array((output_I_test, output_Q_test))
+    output_power_np_train = np.array((inverseOutput_I_train, inverseOutput_Q_train))
+    output_power_np_test = np.array((inverseOutput_I_test, inverseOutput_Q_test))
     output_power_np_train = output_power_np_train.reshape(-1, 2) # Ensure shape is (num_samples, 2)
     output_power_np_test = output_power_np_test.reshape(-1, 2) # Ensure shape is (num_samples, 2)
 
@@ -149,8 +186,8 @@ if __name__ == '__main__':
 
 
     # --- 4. Create Dataset and DataLoader instances ---
-    train_dataset = PowerAmplifierDataset(input_power_np_train, output_power_np_train)
-    test_dataset = PowerAmplifierDataset(input_power_np_test, output_power_np_test)
+    train_dataset = InversePowerAmplifierDataset(input_power_np_train, output_power_np_train)
+    test_dataset = InversePowerAmplifierDataset(input_power_np_test, output_power_np_test)
 
     batch_size = 32
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
@@ -159,7 +196,7 @@ if __name__ == '__main__':
     print(f"DataLoaders created with batch size: {batch_size}")
 
     # --- 5. Instantiate the Model, Loss Function, and Optimizer ---
-    model = PowerAmplifierModel()
+    model = InversePowerAmplifierModel()
     criterion = nn.MSELoss() # Mean Squared Error is common for regression tasks
     optimizer = optim.Adam(model.parameters(), lr=0.001) # Adam is a good general-purpose optimizer
 
@@ -238,15 +275,15 @@ if __name__ == '__main__':
         # Move predictions back to CPU and convert to NumPy for plotting
         predicted_outputs_np = predicted_outputs_tensor.cpu().numpy()
 
-
+    predicted_outputs_np = predicted_outputs_np.reshape(2, -1)
     # Plot for Input 1 vs Output 1
     plt.figure(figsize=(12, 7))
-    plt.scatter(output_I_test, output_Q_test, s=10, label='Actual Output', alpha=0.6)
-    plt.scatter(input_I_test, input_Q_test, s=10, label='Input', alpha=0.6)
-    plt.plot(predicted_outputs_np[:, 0], predicted_outputs_np[:, 1], color='red', linewidth=2, label='Predicted Output')
+    plt.scatter(inverseOutput_I_test, inverseOutput_Q_test, s=10, label='Actual Output', alpha=0.6)
+    plt.scatter(inverseInput_I_test, inverseInput_Q_test, s=10, label='Input', alpha=0.6)
+    plt.plot(predicted_outputs_np[0], predicted_outputs_np[1], color='red', linewidth=2, label='Predicted Output')
     plt.xlabel('I value')
     plt.ylabel('Q value')
-    plt.title('Power Amplifier Model: Actual vs. Predicted')
+    plt.title('Inverse Power Amplifier Model: Actual vs. Predicted')
     plt.legend()
     plt.grid(True)
     plt.show()

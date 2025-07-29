@@ -269,21 +269,13 @@ if __name__ == '__main__':
         # Move predictions back to CPU and convert to NumPy for plotting
         predicted_outputs_np = predicted_outputs_tensor.cpu().numpy()
 
-    # For visualization, let's plot each input vs its corresponding output
-    # Sort by the first input feature for cleaner plots
-    # sort_indices = np.argsort(input_I_test[:, 0]) # Sort based on the first input feature
-
-    # X_test_sorted_I = input_I_test[sort_indices]
-    # X_test_sorted_Q = input_Q_test[sort_indices]
-    # y_test_sorted_Q = output_Q_test[sort_indices]
-    # y_test_sorted_I = output_I_test[sort_indices]
-    # predicted_outputs_sorted = predicted_outputs_np[sort_indices]
-
+ 
+    predicted_outputs_np = predicted_outputs_np.reshape(2, -1)
     # Plot for Input 1 vs Output 1
     plt.figure(figsize=(12, 7))
+    plt.scatter(predicted_outputs_np[0], predicted_outputs_np[1], color='red', linewidth=2, label='Predicted Output')
     plt.scatter(output_I_test, output_Q_test, s=10, label='Actual Output', alpha=0.6)
     plt.scatter(input_I_test, input_Q_test, s=10, label='Input', alpha=0.6)
-    plt.plot(predicted_outputs_np[:, 0], predicted_outputs_np[:, 1], color='red', linewidth=2, label='Predicted Output')
     plt.xlabel('I value')
     plt.ylabel('Q value')
     plt.title('Power Amplifier Model: Actual vs. Predicted')
