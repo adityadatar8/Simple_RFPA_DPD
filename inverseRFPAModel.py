@@ -189,7 +189,7 @@ if __name__ == '__main__':
     train_dataset = InversePowerAmplifierDataset(input_power_np_train, output_power_np_train)
     test_dataset = InversePowerAmplifierDataset(input_power_np_test, output_power_np_test)
 
-    batch_size = 32
+    batch_size = 64
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
