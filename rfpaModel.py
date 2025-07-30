@@ -107,19 +107,25 @@ class PowerAmplifierModel(nn.Module):
         """
         super(PowerAmplifierModel, self).__init__()
         # --- CHANGED: Input layer now takes 2 features ---
-        self.fc1 = nn.Linear(2, 64)  # 2 inputs to first hidden layer
+        self.fc1 = nn.Linear(2, 2)  # 2 inputs to first hidden layer
         self.relu1 = nn.ReLU()       # Activation function
 
         # Hidden layer 2
-        self.fc2 = nn.Linear(64, 128) # First hidden to second hidden layer
+        self.fc2 = nn.Linear(2, 8) # First hidden to second hidden layer
         self.relu2 = nn.ReLU()       # Activation function
 
         # Hidden layer 3
-        self.fc3 = nn.Linear(128, 64) # Second hidden to third hidden layer
+        self.fc3 = nn.Linear(8, 8) # Second hidden to third hidden layer
         self.relu3 = nn.ReLU()       # Activation function
 
+        self.fc4 = nn.Linear(8, 8)
+        self.relu4 = nn.ReLU()
+
+        # self.fc5 = nn.Linear(32, 2)
+        # self.relu5 = nn.ReLU()
+
         # --- CHANGED: Output layer now produces 2 features ---
-        self.fc4 = nn.Linear(64, 2)   # Third hidden to output layer (2 outputs)
+        self.fc5 = nn.Linear(8, 2)   # Third hidden to output layer (2 outputs)
 
     def forward(self, x):
         """
@@ -137,7 +143,11 @@ class PowerAmplifierModel(nn.Module):
         x = self.relu2(x)
         x = self.fc3(x)
         x = self.relu3(x)
-        x = self.fc4(x) # No activation here, as it's a regression task
+        x = self.fc4(x)
+        x = self.relu4(x)
+        # x = self.fc5(x)
+        # x = self.relu5(x)
+        x = self.fc5(x) # No activation here, as it's a regression task
         return x
 
 # --- Main execution block (CRUCIAL for Windows multiprocessing with DataLoader) ---
@@ -183,7 +193,7 @@ if __name__ == '__main__':
     train_dataset = PowerAmplifierDataset(input_power_np_train, output_power_np_train)
     test_dataset = PowerAmplifierDataset(input_power_np_test, output_power_np_test)
 
-    batch_size = 32
+    batch_size = 64
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
