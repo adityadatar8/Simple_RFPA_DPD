@@ -6,11 +6,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
+learningRate = 0.000005 # was 0.001
+dropout_rate = 0.25
+
 inputTrainData = np.genfromtxt('datasets/DPA_200MHz/train_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 outputTrainData = np.genfromtxt('datasets/DPA_200MHz/train_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 
 inputTestData = np.genfromtxt('datasets/DPA_200MHz/test_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 outputTestData = np.genfromtxt('datasets/DPA_200MHz/test_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
+# inputTestData = inputTrainData[:1000, :]
+# inputTrainData = inputTrainData[1001:, :]
+# outputTestData = outputTrainData[:1000, :]
+# outputTrainData = outputTrainData[1001:, :]
 
 input_I_train = inputTrainData[:, 0]
 input_Q_train = inputTrainData[:, 1]
@@ -108,24 +115,30 @@ class PowerAmplifierModel(nn.Module):
         super(PowerAmplifierModel, self).__init__()
         # --- CHANGED: Input layer now takes 2 features ---
         self.fc1 = nn.Linear(2, 2)  # 2 inputs to first hidden layer
-        self.relu1 = nn.ReLU()       # Activation function
+        self.relu1 = nn.ELU()       # Activation function
+
+        self.dropout1 = nn.Dropout(p=dropout_rate)
 
         # Hidden layer 2
         self.fc2 = nn.Linear(2, 8) # First hidden to second hidden layer
-        self.relu2 = nn.ReLU()       # Activation function
+        self.relu2 = nn.ELU()       # Activation function
+
+        self.dropout2 = nn.Dropout(p=dropout_rate)
 
         # Hidden layer 3
         self.fc3 = nn.Linear(8, 8) # Second hidden to third hidden layer
-        self.relu3 = nn.ReLU()       # Activation function
+        self.relu3 = nn.ELU()       # Activation function
 
-        self.fc4 = nn.Linear(8, 8)
-        self.relu4 = nn.ReLU()
+        self.dropout3 = nn.Dropout(p=dropout_rate)
+
+        # self.fc4 = nn.Linear(8, 8)
+        # self.relu4 = nn.ReLU()
 
         # self.fc5 = nn.Linear(32, 2)
         # self.relu5 = nn.ReLU()
 
         # --- CHANGED: Output layer now produces 2 features ---
-        self.fc5 = nn.Linear(8, 2)   # Third hidden to output layer (2 outputs)
+        self.fc4 = nn.Linear(8, 2)   # Third hidden to output layer (2 outputs)
 
     def forward(self, x):
         """
@@ -139,15 +152,18 @@ class PowerAmplifierModel(nn.Module):
         """
         x = self.fc1(x)
         x = self.relu1(x)
+        x = self.dropout1(x)
         x = self.fc2(x)
         x = self.relu2(x)
+        x = self.dropout2(x)
         x = self.fc3(x)
         x = self.relu3(x)
-        x = self.fc4(x)
-        x = self.relu4(x)
+        x = self.dropout3(x)
+        # x = self.fc4(x)
+        # x = self.relu4(x)
         # x = self.fc5(x)
         # x = self.relu5(x)
-        x = self.fc5(x) # No activation here, as it's a regression task
+        x = self.fc4(x) # No activation here, as it's a regression task
         return x
 
 # --- Main execution block (CRUCIAL for Windows multiprocessing with DataLoader) ---
@@ -202,7 +218,7 @@ if __name__ == '__main__':
     # --- 5. Instantiate the Model, Loss Function, and Optimizer ---
     model = PowerAmplifierModel()
     criterion = nn.MSELoss() # Mean Squared Error is common for regression tasks
-    optimizer = optim.Adam(model.parameters(), lr=0.001) # Adam is a good general-purpose optimizer
+    optimizer = optim.Adam(model.parameters(), lr=learningRate) # Adam is a good general-purpose optimizer
 
     # Check for GPU availability and move model to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -210,7 +226,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
 
     # --- 6. Training Loop ---
-    num_epochs = 100
+    num_epochs = 400
     train_losses = []
     test_losses = []
 
@@ -293,6 +309,21 @@ if __name__ == '__main__':
     plt.grid(True)
     plt.show()
 
+    plt.scatter(predicted_outputs_np[0], predicted_outputs_np[1], color='red', linewidth=2, label='Predicted Output')
+    plt.xlabel('I value')
+    plt.ylabel('Q value')
+    plt.title('Power Amplifier Model')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    plt.scatter(output_I_test, output_Q_test, s=10, label='Actual Output', alpha=0.6)
+    plt.xlabel('I value')
+    plt.ylabel('Q value')
+    plt.title('Power Amplifier Actual Output')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
     # --- 9. Save the trained model ---
     model_path = 'rfpaModel.pth'
