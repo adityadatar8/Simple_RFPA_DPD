@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import seaborn as sns
+import matplotlib.font_manager as fm
 from torch.utils.data import Dataset, DataLoader
 from rfpaModel import PowerAmplifierModel
 from rotatedinverseRFPAModel import MLP
@@ -18,7 +20,8 @@ paGain = 3.2
 
 # Set up RFPA Model
 model_path = 'power_amplifier_model.pth'
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 loaded_model = PowerAmplifierModel()
 loaded_model.to(device)
 print(f"Using device: {device}")
@@ -29,7 +32,8 @@ print("Model loaded successfully for inference.")
 
 # Set up the inverse RFPA Model
 inverse_model_path = 'inverse_pa_model.pth'
-inverse_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# inverse_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+inverse_device = torch.device("cpu")
 inverse_loaded_model = PowerAmplifierModel()
 inverse_loaded_model.to(inverse_device)
 print(f"Using device: {inverse_device}")
@@ -126,20 +130,28 @@ transformationDesired = paGain*x*np.heaviside(-1*(x-filterInputThreshold), 1) + 
 # plt.show()
 
 ####################################################################################### Tianyi Edits #######################################################################################
-
+# sns.set_color_codes("dark")
 width = 1
-plt.style.use('dark_background')
-plt.rcParams["font.family"] = "sans-serif"
-plt.plot(t, inputSignal, label='Input Signal', color='cyan', linewidth = width)
-plt.plot(t, RFPA(inputSignal), label='Output Without DPD', color='red', linewidth = width)
-plt.plot(t, RFPA(inverseRFPA(paGain * inputSignal)), label='Output With DPD', color='violet', linewidth = width)
-plt.plot(t, inputSignal*paGain, label='Desired Output', color='orange', linewidth = width)
+# plt.style.use('dark_background')
+montserrat_font_path = 'Montserrat-Regular.ttf'
+fm.fontManager.addfont(montserrat_font_path)
+plt.figure(facecolor='#F7F9FF')
+# plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.family"] = "Montserrat"
+plt.plot(t, inputSignal, label='Input Signal', color='blue', linewidth = width)
+plt.plot(t, RFPA(inputSignal), label='Output Without DPD', color='purple', linewidth = width, linestyle='dotted')
+plt.plot(t, RFPA(inverseRFPA(paGain * inputSignal)), label='Output With DPD', color='red', linewidth = width, linestyle='dashdot')
+plt.plot(t, inputSignal*paGain, label='Desired Output', color='g', linewidth = width)
 plt.xlabel('Time')
 plt.ylabel('Signal Amplitude')
 plt.title('Comparison of Amplification With and Without DPD')
 plt.legend()
+plt.savefig('OutputSignalComparison.svg')
 plt.show()
 
+plt.figure(facecolor='#F7F9FF')
+# plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.family"] = "Montserrat"
 plt.plot(x, RFPA(x), label='PA Model')
 plt.plot(x, inverseRFPA(x), label='Inverse PA Model')
 plt.plot(x, filter(paGain*x), label='Desired')
@@ -148,6 +160,7 @@ plt.xlabel('Input Amplitude')
 plt.ylabel('Output Amplitude')
 plt.title('Visualization of Output Power vs Input Power')
 plt.legend()
+plt.savefig('OutputPowerComparison.svg')
 plt.show()
 
 modifiedSignal = RFPA(inverseRFPA(paGain * inputSignal))

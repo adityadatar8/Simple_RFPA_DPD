@@ -1,6 +1,8 @@
 import scipy
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib.font_manager as fm
 
 inputData = np.genfromtxt('datasets/DPA_200MHz/train_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 outputData = np.genfromtxt('datasets/DPA_200MHz/train_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
@@ -231,7 +233,10 @@ if __name__ == '__main__':
     print("Training finished!")
 
     # --- 7. Visualize Training Progress (Loss over epochs) ---
-    plt.figure(figsize=(10, 6))
+    montserrat_font_path = 'Montserrat-Regular.ttf'
+    fm.fontManager.addfont(montserrat_font_path)
+    plt.figure(figsize=(10, 6), facecolor='#F7F9FF')
+    plt.rcParams["font.family"] = "Montserrat"
     plt.plot(train_losses, label='Training Loss')
     plt.plot(test_losses, label='Testing Loss')
     plt.xlabel('Epoch')
@@ -257,7 +262,7 @@ if __name__ == '__main__':
     y_test_sorted = y_test[sort_indices]
     predicted_outputs_sorted = predicted_outputs_np[sort_indices]
 
-    plt.figure(figsize=(12, 7))
+    plt.figure(facecolor='#F7F9FF')
     plt.scatter(X_test_sorted, y_test_sorted, s=10, label='Actual Test Data', alpha=0.6)
     plt.plot(X_test_sorted, predicted_outputs_sorted, color='red', linewidth=2, label='Model Predictions')
     plt.xlabel('Input Power')
@@ -265,6 +270,7 @@ if __name__ == '__main__':
     plt.title('Power Amplifier Model: Actual vs. Predicted Output')
     plt.legend()
     plt.grid(True)
+    plt.savefig('RFPAModelFit.svg')
     plt.show()
 
     # --- 9. Save the trained model ---

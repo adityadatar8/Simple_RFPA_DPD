@@ -19,7 +19,8 @@ sampling_rate = 200000000 # in Hz
 inverse_model_path = 'inverse_pa_model.pth'
 
 # Check for GPU availability and move model to GPU if available
-inverse_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# inverse_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+inverse_device = torch.device("cpu")
 
 
 inverse_loaded_model = PowerAmplifierModel() # Re-instantiate the model architecture
@@ -38,6 +39,9 @@ def inverseSaturationCurve(val):
         new_input_power = torch.tensor([[val[i]]], dtype=torch.float32).to(inverse_device)
         with torch.no_grad():
             predicted_output.append(inverse_loaded_model(new_input_power))
+    # new_output = []
+    # for i in range(len(predicted_output)):
+    #     new_output.append(predicted_output[i].cpu().numpy())
     predicted_output = np.array(predicted_output)
     predicted_output = predicted_output.reshape(-1)
     return predicted_output
