@@ -6,14 +6,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
-learningRate = 0.000005 # was 0.001
-dropout_rate = 0.25
+initial_learningRate = 0.0001 # was 0.001
+learningRateDecayRate = 0.955
+dropout_rate = 0 # add in dropouts and try different values
+numberOfEpochs = 100
 
-inputTrainData = np.genfromtxt('datasets/DPA_200MHz/train_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
-outputTrainData = np.genfromtxt('datasets/DPA_200MHz/train_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
+print("Reading Data from Datasets...")
+inputTrainData = np.genfromtxt('datasets/DPA_160MHz/train_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
+outputTrainData = np.genfromtxt('datasets/DPA_160MHz/train_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 
-inputTestData = np.genfromtxt('datasets/DPA_200MHz/test_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
-outputTestData = np.genfromtxt('datasets/DPA_200MHz/test_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
+inputTestData = np.genfromtxt('datasets/DPA_160MHz/test_input.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
+outputTestData = np.genfromtxt('datasets/DPA_160MHz/test_output.csv', delimiter=',', skip_header=1, dtype=None, encoding='utf-8')
 # inputTestData = inputTrainData[:1000, :]
 # inputTrainData = inputTrainData[1001:, :]
 # outputTestData = outputTrainData[:1000, :]
@@ -21,27 +24,66 @@ outputTestData = np.genfromtxt('datasets/DPA_200MHz/test_output.csv', delimiter=
 
 input_I_train = inputTrainData[:, 0]
 input_Q_train = inputTrainData[:, 1]
+output_I_train = outputTrainData[:, 0]
+output_Q_train = outputTrainData[:, 1]
+input_I_test = inputTestData[:, 0]
+input_Q_test = inputTestData[:, 1]
+output_I_test = outputTestData[:, 0]
+output_Q_test = outputTestData[:, 1]
+
+print("Data Read, now cleaning data")
+
+# for i in range(len(outputTrainData)):
+#     if not(outputTrainData[i][0] in output_I_train) or not(outputTrainData[i][1] in output_Q_train):
+#         input_I_train.append(inputTrainData[i][0])
+#         input_Q_train.append(inputTrainData[i][1])
+#         output_I_train.append(outputTrainData[i][0])
+#         output_Q_train.append(outputTrainData[i][1])
+#     elif input_I_train.index(inputTrainData[i][0]) != input_Q_train.index(inputTrainData[i][1]):
+#         input_I_train.append(inputTrainData[i][0])
+#         input_Q_train.append(inputTrainData[i][1])
+#         output_I_train.append(outputTrainData[i][0])
+#         output_Q_train.append(outputTrainData[i][1])
+
+# for i in range(len(outputTestData)):
+#     if not(outputTestData[i][0] in output_I_test) or not(outputTestData[i][1] in output_Q_test):
+#         input_I_test.append(inputTestData[i][0])
+#         input_Q_test.append(inputTestData[i][1])
+#         output_I_test.append(outputTestData[i][0])
+#         output_Q_test.append(outputTestData[i][1])
+#     elif input_I_test.index(inputTestData[i][0]) != input_Q_test.index(inputTestData[i][1]):
+#         input_I_test.append(inputTestData[i][0])
+#         input_Q_test.append(inputTestData[i][1])
+#         output_I_test.append(outputTestData[i][0])
+#         output_Q_test.append(outputTestData[i][1])
+
+input_I_train = np.array(input_I_train)
+input_Q_train = np.array(input_Q_train)
 input_I_train = input_I_train.astype(np.float64)
 input_Q_train = input_Q_train.astype(np.float64)
 input_I_train = input_I_train.reshape(-1, 1)
 input_Q_train = input_Q_train.reshape(-1, 1)
+input_I_train = np.abs(input_I_train)
+input_Q_train = np.abs(input_Q_train)
 
-output_I_train = outputTrainData[:, 0]
-output_Q_train = outputTrainData[:, 1]
+output_I_train = np.array(output_I_train)
+output_Q_train = np.array(output_Q_train)
 output_I_train = output_I_train.astype(np.float64)
 output_Q_train = output_Q_train.astype(np.float64)
 output_I_train = output_I_train.reshape(-1, 1)
 output_Q_train = output_Q_train.reshape(-1, 1)
+output_I_train = np.abs(output_I_train)
+output_Q_train = np.abs(output_Q_train)
 
-input_I_test = inputTestData[:, 0]
-input_Q_test = inputTestData[:, 1]
+input_I_test = np.array(input_I_test)
+input_Q_test = np.array(input_Q_test)
 input_I_test = input_I_test.astype(np.float64)
 input_Q_test = input_Q_test.astype(np.float64)
 input_I_test = input_I_test.reshape(-1, 1)
 input_Q_test = input_Q_test.reshape(-1, 1)
 
-output_I_test = outputTestData[:, 0]
-output_Q_test = outputTestData[:, 1]
+output_I_test = np.array(output_I_test)
+output_Q_test = np.array(output_Q_test)
 output_I_test = output_I_test.astype(np.float64)
 output_Q_test = output_Q_test.astype(np.float64)
 output_I_test = output_I_test.reshape(-1, 1)
@@ -115,21 +157,21 @@ class PowerAmplifierModel(nn.Module):
         super(PowerAmplifierModel, self).__init__()
         # --- CHANGED: Input layer now takes 2 features ---
         self.fc1 = nn.Linear(2, 2)  # 2 inputs to first hidden layer
-        self.relu1 = nn.ELU()       # Activation function
+        self.relu1 = nn.LeakyReLU()       # Activation function
 
         self.dropout1 = nn.Dropout(p=dropout_rate)
 
         # Hidden layer 2
-        self.fc2 = nn.Linear(2, 8) # First hidden to second hidden layer
-        self.relu2 = nn.ELU()       # Activation function
+        self.fc2 = nn.Linear(2, 128) # First hidden to second hidden layer
+        self.relu2 = nn.LeakyReLU()       # Activation function
 
         self.dropout2 = nn.Dropout(p=dropout_rate)
 
         # Hidden layer 3
-        self.fc3 = nn.Linear(8, 8) # Second hidden to third hidden layer
-        self.relu3 = nn.ELU()       # Activation function
+        # self.fc3 = nn.Linear(8, 8) # Second hidden to third hidden layer
+        # self.relu3 = nn.LeakyReLU()       # Activation function
 
-        self.dropout3 = nn.Dropout(p=dropout_rate)
+        # self.dropout3 = nn.Dropout(p=dropout_rate)
 
         # self.fc4 = nn.Linear(8, 8)
         # self.relu4 = nn.ReLU()
@@ -138,7 +180,7 @@ class PowerAmplifierModel(nn.Module):
         # self.relu5 = nn.ReLU()
 
         # --- CHANGED: Output layer now produces 2 features ---
-        self.fc4 = nn.Linear(8, 2)   # Third hidden to output layer (2 outputs)
+        self.fc4 = nn.Linear(128, 2)   # Third hidden to output layer (2 outputs)
 
     def forward(self, x):
         """
@@ -156,15 +198,31 @@ class PowerAmplifierModel(nn.Module):
         x = self.fc2(x)
         x = self.relu2(x)
         x = self.dropout2(x)
-        x = self.fc3(x)
-        x = self.relu3(x)
-        x = self.dropout3(x)
+        # x = self.fc3(x)
+        # x = self.relu3(x)
+        # x = self.dropout3(x)
         # x = self.fc4(x)
         # x = self.relu4(x)
         # x = self.fc5(x)
         # x = self.relu5(x)
-        x = self.fc4(x) # No activation here, as it's a regression task
+        x = self.fc4(x)
         return x
+
+def MBELoss(predictions, targets):
+    """
+    Calculates the Mean Bias Error (MBE) loss.
+
+    Args:
+        predictions (torch.Tensor): The model's predicted values.
+        targets (torch.Tensor): The true target values.
+
+    Returns:
+        torch.Tensor: The calculated MBE loss.
+    """
+    return torch.mean(predictions - targets)
+
+def getLearningRate(epoch):
+    return (initial_learningRate * (0.95 ** epoch))
 
 # --- Main execution block (CRUCIAL for Windows multiprocessing with DataLoader) ---
 if __name__ == '__main__':
@@ -199,15 +257,15 @@ if __name__ == '__main__':
 
 
     print(f"Generated {num_samples} dummy data points.")
-    print(f"Training Input power shape: {input_power_np_train.shape}")
-    print(f"Training Output power shape: {output_power_np_train.shape}")
-    print(f"Testing Input power shape: {input_power_np_test.shape}")
-    print(f"Testing Output power shape: {output_power_np_test.shape}")
+    print(f"Training Input power shape: {input_I_train.shape}")
+    print(f"Training Output power shape: {output_I_train.shape}")
+    print(f"Testing Input power shape: {input_I_test.shape}")
+    print(f"Testing Output power shape: {input_Q_test.shape}")
 
 
     # --- 4. Create Dataset and DataLoader instances ---
     train_dataset = PowerAmplifierDataset(input_power_np_train, output_power_np_train)
-    test_dataset = PowerAmplifierDataset(input_power_np_test, output_power_np_test)
+    test_dataset = PowerAmplifierDataset(np.abs(input_power_np_test), np.abs(output_power_np_test))
 
     batch_size = 64
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
@@ -217,8 +275,10 @@ if __name__ == '__main__':
 
     # --- 5. Instantiate the Model, Loss Function, and Optimizer ---
     model = PowerAmplifierModel()
-    criterion = nn.MSELoss() # Mean Squared Error is common for regression tasks
-    optimizer = optim.Adam(model.parameters(), lr=learningRate) # Adam is a good general-purpose optimizer
+    criterion = nn.MSELoss()
+    # def criterion(predictions, targets):
+    #     return MBELoss(predictions, targets)
+    # optimizer = optim.Adam(model.parameters(), lr=learningRate)
 
     # Check for GPU availability and move model to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -226,12 +286,14 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
 
     # --- 6. Training Loop ---
-    num_epochs = 400
+    num_epochs = numberOfEpochs
     train_losses = []
     test_losses = []
+    learningRate = initial_learningRate
 
     print(f"Starting training for {num_epochs} epochs...")
     for epoch in range(num_epochs):
+        optimizer = optim.Adam(model.parameters(), lr=learningRate)
         model.train() # Set the model to training mode
         running_loss = 0.0
         for batch_idx, (inputs, targets) in enumerate(train_loader):
@@ -270,6 +332,7 @@ if __name__ == '__main__':
             print(f"Epoch [{epoch+1}/{num_epochs}], "
                   f"Train Loss: {avg_train_loss:.4f}, "
                   f"Test Loss: {avg_test_loss:.4f}")
+        learningRate = learningRate * learningRateDecayRate
 
     print("Training finished!")
 
@@ -289,7 +352,8 @@ if __name__ == '__main__':
     with torch.no_grad():
         # Ensure X_test is (num_samples, 2) before converting to tensor
         # X_test_reshaped = X_test # Already 2D from train_test_split
-        test_inputs_tensor = torch.tensor(input_power_np_test, dtype=torch.float32).to(device)
+        test_inputs_tensor = torch.tensor(np.abs(input_power_np_test), dtype=torch.float32).to(device)
+        input_power_np_test_signs = np.heaviside(input_power_np_test, 1) - np.heaviside(-1*input_power_np_test, 1)
         predicted_outputs_tensor = model(test_inputs_tensor)
 
         # Move predictions back to CPU and convert to NumPy for plotting
@@ -297,6 +361,8 @@ if __name__ == '__main__':
 
  
     predicted_outputs_np = predicted_outputs_np.reshape(2, -1)
+    input_power_np_test_signs = input_power_np_test_signs.reshape(2, -1)
+    predicted_outputs_np = predicted_outputs_np * input_power_np_test_signs
     # Plot for Input 1 vs Output 1
     plt.figure(figsize=(12, 7))
     plt.scatter(predicted_outputs_np[0], predicted_outputs_np[1], color='red', linewidth=2, label='Predicted Output')
